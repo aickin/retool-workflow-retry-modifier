@@ -185,11 +185,17 @@ async function main() {
   console.log('YAML Retry Policy Modifier Script');
   console.log('==================================\n');
   
-  const workflowsPath = './workflows';
+  // Get base directory from command line argument or use current directory
+  const baseDir = process.argv[2] || '.';
+  const workflowsPath = path.join(baseDir, 'workflows');
+  
+  console.log(`Base directory: ${path.resolve(baseDir)}`);
+  console.log(`Looking for workflows in: ${path.resolve(workflowsPath)}\n`);
   
   // Check if workflows directory exists
   if (!fs.existsSync(workflowsPath)) {
-    console.error('Error: workflows directory not found!');
+    console.error(`Error: workflows directory not found at ${path.resolve(workflowsPath)}!`);
+    console.error('Make sure you\'re running the script from the correct directory or provide the correct base path as an argument.');
     rl.close();
     return;
   }
