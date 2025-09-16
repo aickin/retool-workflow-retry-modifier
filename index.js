@@ -112,6 +112,56 @@ function writeYamlFile(filePath, data) {
   }
 }
 
+// Function to check if a block already has the specified retry policy
+function hasCorrectRetryPolicy(yamlData, retryConfig) {
+  if (!yamlData || !yamlData.blockData || !yamlData.blockData.retryPolicy) {
+    return false;
+  }
+  
+  const currentRetry = yamlData.blockData.retryPolicy;
+  return (
+    currentRetry.numAttempts === retryConfig.numAttempts &&
+    currentRetry.initialIntervalMs === retryConfig.initialIntervalMs &&
+    currentRetry.maximumIntervalMs === retryConfig.maximumIntervalMs &&
+    currentRetry.backoffCoefficient === retryConfig.backoffCoefficient
+  );
+}
+
+// Function to check if all eligible blocks in a workflow already have correct retry policy
+function workflowNeedsUpdate(workflowPath, retryConfig) {
+  const blockFiles = getBlockFiles(workflowPath);
+  
+  if (blockFiles.length === 0) {
+    return false; // No blocks to update
+  }
+  
+  let eligibleBlocks = 0;
+  let correctBlocks = 0;
+  
+  for (const blockFile of blockFiles) {
+    const blockPath = path.join(workflowPath, blockFile);
+    const yamlData = readYamlFile(blockPath);
+    
+    if (!yamlData || !shouldModifyFile(yamlData)) {
+      continue; // Skip non-eligible blocks
+    }
+    
+    eligibleBlocks++;
+    
+    if (hasCorrectRetryPolicy(yamlData, retryConfig)) {
+      correctBlocks++;
+    }
+  }
+  
+  // If no eligible blocks, no need to update
+  if (eligibleBlocks === 0) {
+    return false;
+  }
+  
+  // Need update if not all eligible blocks have correct retry policy
+  return correctBlocks < eligibleBlocks;
+}
+
 // Function to add or update retry policy
 function addRetryPolicy(yamlData, retryConfig) {
   // Ensure blockData exists
@@ -195,6 +245,12 @@ async function main() {
   // Process each workflow directory
   for (const workflowName of workflowDirs) {
     const workflowPath = path.join(workflowsPath, workflowName);
+    
+    // Check if workflow needs updating
+    if (!workflowNeedsUpdate(workflowPath, retryConfig)) {
+      console.log(`Skipping workflow "${workflowName}": All eligible blocks already have correct retry policy\n`);
+      continue;
+    }
     
     // Ask user if they want to modify this workflow
     const shouldModify = await askYesNo(`Modify workflow "${workflowName}"?`);
