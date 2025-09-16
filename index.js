@@ -124,7 +124,7 @@ function addRetryPolicy(yamlData, retryConfig) {
     numAttempts: retryConfig.numAttempts,
     initialIntervalMs: retryConfig.initialIntervalMs,
     maximumIntervalMs: retryConfig.maximumIntervalMs,
-    backoffCoefficient: 2
+    backoffCoefficient: retryConfig.backoffCoefficient
   };
   
   return yamlData;
@@ -147,29 +147,37 @@ async function main() {
   // Get retry policy configuration from user
   console.log('Please configure the retry policy:');
   
-  let numAttempts;
+  let numRetries;
   do {
-    const input = await askQuestion('Number of attempts', '6');
-    numAttempts = parseInt(input);
-    if (isNaN(numAttempts) || numAttempts < 1) {
-      console.log('Error: numAttempts must be a number >= 1');
+    const input = await askQuestion('Number of retries', '5');
+    numRetries = parseInt(input);
+    if (isNaN(numRetries) || numRetries < 0) {
+      console.log('Error: Number of retries must be a number >= 0');
     }
-  } while (isNaN(numAttempts) || numAttempts < 1);
+  } while (isNaN(numRetries) || numRetries < 0);
   
   const initialIntervalMs = parseInt(await askQuestion('Initial interval (ms)', '1000'));
   const maximumIntervalMs = parseInt(await askQuestion('Maximum interval (ms)', '20000'));
   
+  let backoffCoefficient;
+  const backoffInput = await askQuestion('Backoff coefficient', '2');
+  backoffCoefficient = parseFloat(backoffInput);
+  if (isNaN(backoffCoefficient)) {
+    backoffCoefficient = 2;
+  }
+  
   const retryConfig = {
-    numAttempts,
+    numAttempts: numRetries + 1, // Convert retries to total attempts
     initialIntervalMs: isNaN(initialIntervalMs) ? 1000 : initialIntervalMs,
-    maximumIntervalMs: isNaN(maximumIntervalMs) ? 20000 : maximumIntervalMs
+    maximumIntervalMs: isNaN(maximumIntervalMs) ? 20000 : maximumIntervalMs,
+    backoffCoefficient
   };
   
   console.log('\nRetry policy configuration:');
-  console.log(`  numAttempts: ${retryConfig.numAttempts}`);
+  console.log(`  numAttempts: ${retryConfig.numAttempts} (${numRetries} retries + 1 initial attempt)`);
   console.log(`  initialIntervalMs: ${retryConfig.initialIntervalMs}`);
   console.log(`  maximumIntervalMs: ${retryConfig.maximumIntervalMs}`);
-  console.log('  backoffCoefficient: 2\n');
+  console.log(`  backoffCoefficient: ${retryConfig.backoffCoefficient}\n`);
   
   // Get workflow directories
   const workflowDirs = getWorkflowDirectories(workflowsPath);
