@@ -20,24 +20,16 @@ npm install
 
 ## Usage
 
-### Step 1: Clone Your Retool git Repository (If You Haven't Already)
-
-If you do not have a local copy of the git repository, you should clone the repo first:
-
-```bash
-git clone https://path/to/your/repo
-```
-
-### Step 2: Create a Branch
+### Step 1: Create a Branch
 
 **Before running this script, always create a new branch from main.** This script modifies YAML files in place, so it's important to work in a separate branch.
 
 ```bash
-# In the Retool git directory, create a new branch before making changes
+# Create a new branch before making changes
 git checkout -b add-retry-policies
 ```
 
-### Step 3: Run the Script
+### Step 2: Run the Script
 
 #### Basic Usage (Current Directory)
 
@@ -56,12 +48,12 @@ node retry-modifier.js /path/to/your/project
 node retry-modifier.js ../other-project
 ```
 
-### Step 4: Push Changes and Create Pull Request
+### Step 3: Push Changes and Create Pull Request
 
 After the script completes successfully:
 
 ```bash
-# From the Retool git directory, add and commit your changes
+# Add and commit your changes
 git add .
 git commit -m "Add retry policies to workflow blocks"
 
@@ -71,7 +63,7 @@ git push -u origin add-retry-policies
 # Open a pull request to main through your Git platform (GitHub, GitLab, etc.)
 ```
 
-### Step 5: Merge and Deploy
+### Step 4: Merge and Deploy
 
 Once your pull request is reviewed and approved:
 
@@ -90,7 +82,17 @@ your-project/
 │   │   ├── startTrigger.yml
 │   │   ├── firstblock.yml
 │   │   ├── secondblock.yml
-│   │   └── thirdblock.yml
+│   │   ├── thirdblock.yml
+│   │   └── functions/
+│   │       ├── My Function 1/
+│   │       │   ├── function.yml
+│   │       │   ├── params.yml
+│   │       │   ├── functionBlock1.yml
+│   │       │   └── functionBlock2.yml
+│   │       └── My Function 2/
+│   │           ├── function.yml
+│   │           ├── params.yml
+│   │           └── functionBlock3.yml
 │   └── Another Workflow/
 │       ├── workflow.yml
 │       ├── startTrigger.yml
@@ -122,7 +124,7 @@ Modify workflow "My First Workflow"? (y/n, default: yes):
 The script automatically skips workflows where all eligible blocks already have the correct retry policy, saving you time on subsequent runs.
 
 ### 3. Smart Filtering
-The script only modifies resource query blocks: REST APIs, GraphQL, SQL databases, AWS S3, Firebase, DynamoDB, and OpenAPI endpoints.
+The script only modifies resource query blocks: REST APIs, GraphQL, SQL databases, AWS S3, Firebase, DynamoDB, and OpenAPI endpoints. It processes blocks in both workflows and their functions, but skips metadata files and function calls.
 
 ## Output Format
 
@@ -141,7 +143,7 @@ blockData:
 ## Example Session
 
 ```
-YAML Retry Policy Modifier Script
+Workflow Retry Policy Modifier Script
 ==================================
 
 Base directory: /home/user/my-project
@@ -169,9 +171,14 @@ Processing workflow: Another Workflow
     Skipping: Not a datasource block with valid subtype
   Checking queryblock.yml...
     ✓ Modified queryblock.yml
-  Modified 1 file(s) in this workflow
+  Processing function: My Function 1
+    Checking functionBlock1.yml...
+      ✓ Modified functionBlock1.yml
+    Checking functionBlock2.yml...
+      Skipping: Not a datasource block with valid subtype
+  Modified 2 file(s) in this workflow
 
-Completed! Modified 1 block file(s) total.
+Completed! Modified 2 block file(s) total.
 ```
 
 ## Contributing
@@ -184,4 +191,4 @@ Completed! Modified 1 block file(s) total.
 
 ## License
 
-This project is MIT licensed.
+This project is licensed under the MIT License - see the LICENSE file for details.
