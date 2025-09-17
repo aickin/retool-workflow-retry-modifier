@@ -20,16 +20,24 @@ npm install
 
 ## Usage
 
-### Step 1: Create a Branch
+### Step 1: Clone Your Retool git Repository (If You Haven't Already)
+
+If you do not have a local copy of the git repository, you should clone the repo first:
+
+```bash
+git clone https://path/to/your/repo
+```
+
+### Step 2: Create a Branch
 
 **Before running this script, always create a new branch from main.** This script modifies YAML files in place, so it's important to work in a separate branch.
 
 ```bash
-# Create a new branch before making changes
+# In the Retool git directory, create a new branch before making changes
 git checkout -b add-retry-policies
 ```
 
-### Step 2: Run the Script
+### Step 3: Run the Script
 
 #### Basic Usage (Current Directory)
 
@@ -48,12 +56,12 @@ node retry-modifier.js /path/to/your/project
 node retry-modifier.js ../other-project
 ```
 
-### Step 3: Push Changes and Create Pull Request
+### Step 4: Push Changes and Create Pull Request
 
 After the script completes successfully:
 
 ```bash
-# Add and commit your changes
+# From the Retool git directory, add and commit your changes
 git add .
 git commit -m "Add retry policies to workflow blocks"
 
@@ -63,7 +71,7 @@ git push -u origin add-retry-policies
 # Open a pull request to main through your Git platform (GitHub, GitLab, etc.)
 ```
 
-### Step 4: Merge and Deploy
+### Step 5: Merge and Deploy
 
 Once your pull request is reviewed and approved:
 
@@ -176,4 +184,4 @@ Completed! Modified 1 block file(s) total.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is MIT licensed.
