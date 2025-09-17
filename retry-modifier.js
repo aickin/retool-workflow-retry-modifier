@@ -43,6 +43,16 @@ const VALID_SUBTYPES = [
   'openapiqy'
 ];
 
+// Function to check if a block is a function call (metadata)
+function isFunctionCall(yamlData) {
+  if (!yamlData || !yamlData.blockData) {
+    return false;
+  }
+  
+  const blockData = yamlData.blockData;
+  return blockData.blockType === 'function' && blockData.pluginId === 'multiStepFunction';
+}
+
 // Function to check if a file should be modified
 function shouldModifyFile(yamlData) {
   if (!yamlData || typeof yamlData !== 'object') return false;
@@ -52,6 +62,9 @@ function shouldModifyFile(yamlData) {
   
   if (type !== 'datasource') return false;
   if (!subtype || typeof subtype !== 'string') return false;
+  
+  // Don't modify function calls
+  if (isFunctionCall(yamlData)) return false;
   
   return VALID_SUBTYPES.includes(subtype.toLowerCase());
 }
@@ -70,8 +83,8 @@ function getWorkflowDirectories(workflowsPath) {
   }
 }
 
-// Function to get block files (excluding workflow.yml and startTrigger.yml)
-function getBlockFiles(workflowDir) {
+// Function to get workflow block files (excluding workflow.yml and startTrigger.yml)
+function getWorkflowBlockFiles(workflowDir) {
   try {
     const files = fs.readdirSync(workflowDir);
     return files.filter(file => {
@@ -81,6 +94,21 @@ function getBlockFiles(workflowDir) {
     });
   } catch (error) {
     console.error(`Error reading workflow directory ${workflowDir}: ${error.message}`);
+    return [];
+  }
+}
+
+// Function to get function block files (excluding function.yml and params.yml)
+function getFunctionBlockFiles(functionDir) {
+  try {
+    const files = fs.readdirSync(functionDir);
+    return files.filter(file => {
+      return file.endsWith('.yml') && 
+             file !== 'function.yml' && 
+             file !== 'params.yml';
+    });
+  } catch (error) {
+    console.error(`Error reading function directory ${functionDir}: ${error.message}`);
     return [];
   }
 }
@@ -127,29 +155,67 @@ function hasCorrectRetryPolicy(yamlData, retryConfig) {
   );
 }
 
+// Function to get all function directories within a workflow
+function getFunctionDirectories(workflowPath) {
+  const functionsPath = path.join(workflowPath, 'functions');
+  
+  if (!fs.existsSync(functionsPath)) {
+    return [];
+  }
+  
+  try {
+    const items = fs.readdirSync(functionsPath);
+    return items.filter(item => {
+      const itemPath = path.join(functionsPath, item);
+      return fs.statSync(itemPath).isDirectory();
+    }).map(item => path.join(functionsPath, item));
+  } catch (error) {
+    console.error(`Error reading functions directory ${functionsPath}: ${error.message}`);
+    return [];
+  }
+}
+
 // Function to check if all eligible blocks in a workflow already have correct retry policy
 function workflowNeedsUpdate(workflowPath, retryConfig) {
-  const blockFiles = getBlockFiles(workflowPath);
-  
-  if (blockFiles.length === 0) {
-    return false; // No blocks to update
-  }
+  const blockFiles = getWorkflowBlockFiles(workflowPath);
+  const functionDirs = getFunctionDirectories(workflowPath);
   
   let eligibleBlocks = 0;
   let correctBlocks = 0;
   
+  // Check workflow-level blocks
   for (const blockFile of blockFiles) {
     const blockPath = path.join(workflowPath, blockFile);
     const yamlData = readYamlFile(blockPath);
     
     if (!yamlData || !shouldModifyFile(yamlData)) {
-      continue; // Skip non-eligible blocks
+      continue;
     }
     
     eligibleBlocks++;
     
     if (hasCorrectRetryPolicy(yamlData, retryConfig)) {
       correctBlocks++;
+    }
+  }
+  
+  // Check function blocks
+  for (const functionDir of functionDirs) {
+    const functionBlockFiles = getFunctionBlockFiles(functionDir);
+    
+    for (const blockFile of functionBlockFiles) {
+      const blockPath = path.join(functionDir, blockFile);
+      const yamlData = readYamlFile(blockPath);
+      
+      if (!yamlData || !shouldModifyFile(yamlData)) {
+        continue;
+      }
+      
+      eligibleBlocks++;
+      
+      if (hasCorrectRetryPolicy(yamlData, retryConfig)) {
+        correctBlocks++;
+      }
     }
   }
   
@@ -268,17 +334,13 @@ async function main() {
     
     console.log(`Processing workflow: ${workflowName}`);
     
-    // Get block files
-    const blockFiles = getBlockFiles(workflowPath);
-    
-    if (blockFiles.length === 0) {
-      console.log('  No block files found.\n');
-      continue;
-    }
+    // Get block files and function directories
+    const blockFiles = getWorkflowBlockFiles(workflowPath);
+    const functionDirs = getFunctionDirectories(workflowPath);
     
     let modifiedInWorkflow = 0;
     
-    // Process each block file
+    // Process workflow-level blocks
     for (const blockFile of blockFiles) {
       const blockPath = path.join(workflowPath, blockFile);
       console.log(`  Checking ${blockFile}...`);
@@ -306,6 +368,44 @@ async function main() {
         totalModified++;
       } else {
         console.log(`    Error: Could not write ${blockFile}`);
+      }
+    }
+    
+    // Process function blocks
+    for (const functionDir of functionDirs) {
+      const functionName = path.basename(functionDir);
+      console.log(`  Processing function: ${functionName}`);
+      
+      const functionBlockFiles = getFunctionBlockFiles(functionDir);
+      
+      for (const blockFile of functionBlockFiles) {
+        const blockPath = path.join(functionDir, blockFile);
+        console.log(`    Checking ${blockFile}...`);
+        
+        // Read and parse YAML
+        const yamlData = readYamlFile(blockPath);
+        if (!yamlData) {
+          console.log(`      Error: Could not read ${blockFile}`);
+          continue;
+        }
+        
+        // Check if file should be modified
+        if (!shouldModifyFile(yamlData)) {
+          console.log(`      Skipping: Not a datasource block with valid subtype`);
+          continue;
+        }
+        
+        // Add retry policy
+        const modifiedData = addRetryPolicy(yamlData, retryConfig);
+        
+        // Write back to file
+        if (writeYamlFile(blockPath, modifiedData)) {
+          console.log(`      ✓ Modified ${blockFile}`);
+          modifiedInWorkflow++;
+          totalModified++;
+        } else {
+          console.log(`      Error: Could not write ${blockFile}`);
+        }
       }
     }
     
